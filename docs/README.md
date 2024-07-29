@@ -1,8 +1,8 @@
-<div align="center">
+# 概述
 
-# CLOVERS
+## clovers
 
-_✨ 自定义的聊天平台异步机器人指令-响应插件框架 ✨_
+_✨ 高度自定义的聊天平台 Python 异步机器人指令-响应插件框架 ✨_
 
 <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="python">
 <a href="./LICENSE">
@@ -14,9 +14,15 @@ _✨ 自定义的聊天平台异步机器人指令-响应插件框架 ✨_
 <a href="https://pypi.python.org/pypi/clovers">
   <img src="https://img.shields.io/pypi/dm/clovers" alt="pypi download">
 </a>
-</div>
 
-## 💿 安装
+## 使用注意事项
+
+1. **请确保你的 Python 版本 >= 3.12**
+2. 在响应器中使用到的额外参数都需要在注册响应器时声明
+3. 除了指令字符串，其他所有事件信息都是额外参数，需要自定义获取方法。
+4. clovers 无法单独使用，需要寄生在其他框架或循环中，比如 [NoneBot2](https://nonebot.dev/)
+
+## 安装
 
 <details open>
 <summary>pip</summary>
@@ -36,7 +42,239 @@ poetry add clovers
 
 </details>
 
-## 插件获取配置
+# 快速开始
+
+以 Nonebot2 框架作为宿主和 nonebot-plugin-clovers 插件为例
+
+创建一个 NoneBot 项目后，安装 [clovers 插件加载器](https://github.com/clovers-project/nonebot-plugin-clovers)
+
+在 nb 项目文件夹下 clovers.toml 中填写配置
+
+```toml
+# clovers.toml
+
+[nonebot_plugin_clovers]
+plugins_list = [ "clovers_leafgame",]
+```
+
+在 plugins_list 配置填写所加载插件的包名
+
+在 clovers_library 文件夹下放入本地 clovers 插件
+
+即可使用。
+
+## 发生了什么
+
+clovers 插件加载器本质是一个 Clovers 实例和一些预定义的 clovers.adapter.Adapter 实例
+
+通过 NoneBot2 的响应器获取指令使 clovers 实例内插件响应
+
+clovers 的理念是完全的自定义，所以当然，如果 nonebot-plugin-clovers 插件无法满足你的需求，你也可以自行编写[适配器方法](#Adapter)
+
+# 如何编写插件？
+
+如果你不做特殊处理，每个插件（即上述 plugins_list 填写的包名或 clovers_library 文件夹下的本地文件）只会向 Clovers 实例添加一个 Plugin 实例
+
+关于 Plugin 类的详细介绍可以参考[文档](/document#plugin.Plugin)
+
+## 开始编写插件
+
+你需要编写一个模块，这个模块需要包含一个`__plugin__`属性，这个属性是一个 clovers.core.plugin.Plugin 类的实例
+
+插件加载器会尝试获取你的模块的`__plugin__`属性，并作为插件放进适配器的插件列表里
+
+如下
+
+```python
+from clovers.core.plugin import Plugin
+
+plugin = Plugin() # 创建 Plugin 实例
+
+__plugin__ = plugin # 暴露 __plugin__ 属性
+```
+
+你可以通过 Plugin 实例创建多个指令-响应任务，当 clovers 运行时，这些任务就会生效
+
+```python
+# 启动时的任务
+@plugin.startup
+async def _():
+    pass
+
+# 关闭时的任务
+@plugin.shutdown
+async def _():
+    pass
+
+# 指令-响应任务
+@plugin.handle(["测试"])
+async def _(event: Event):
+    pass
+```
+
+你也可以使用其他插件的`__plugin__`属性添加响应
+
+```python
+from some_plugin import __plugin__ as plugin
+
+# do something
+@plugin.handle({"其他测试"})
+async def _(event: Event):
+    pass
+```
+
+## 创建 Plugin 实例的参数
+
+| 参数名       | 类型                             | 描述                                   |
+| ------------ | -------------------------------- | -------------------------------------- |
+| name         | str                              | 插件名称                               |
+| priority     | int                              | 插件优先级                             |
+| block        | bool                             | 如果本插件有响应，是否阻断后续插件触发 |
+| build_event  | Optional[Callable[[Event],Any]]  | 构建 event 的方法                      |
+| build_result | Optional[Callable[[Any],Result]] | 构建 result 的方法                     |
+
+## 任务和事件参数
+
+`startup` 在插件初始化时执行，无参数。
+
+`shutdown` 在插件关闭时执行，无参数。
+
+`handle` 指令响应任务，由指令触发，获取到事件参数 `event` ， `event`并不是某个特定的类的实例。而是原始 `Event` 类的实例发送给 `build_event` 构建的返回值。
+
+由此可见原始 `Event` 类你在指令响应任务的函数中唯一获得的参数，你需要的所有东西都在这里。
+
+关于 Event 类的详细介绍可以参考[文档](/document#plugin.Event)
+
+```python
+#使用 "你好世界" 触发响应
+@plugin.handle(["你好"])
+async def _(event: Event):
+    print(event.raw_command) # "你好世界"
+    print(event.args) # ["世界"]
+```
+
+## 指令-响应任务的指令
+
+触发任务的指令可以是字符串，也可以是字符串列表，也可以是一个 re.Pattern 实例
+
+当指令是字符串列表时，handle 装饰器会认为这个指令是一个指令列表，那么它会对字符串进行 startswith 判断。
+
+如果成功触发响应，那么 event.args 会是原指令去掉指令部分后的字符串并按照空格分割为列表。
+
+```python
+#触发指令为"你好 世界"时，输出 ["世界"]
+#触发指令为"helloworld with extra args"时，输出 ["world","with","extra","args"]
+@plugin.handle(["你好","hello"])
+async def _(event: Event):
+    print(event.args)
+```
+
+当指令是字符串时，handle 装饰器会认为这个指令是一个正则字符串，那么它会对指令进行正则匹配。
+
+如果成功触发响应，那么 event.args 会是正则字符串中的 group 列表
+
+```python
+#触发指令为"i love you"时，输出 ["i "," you"] 使用时注意去掉参数里的空格
+#触发指令为"you love me"时,输出 ["you "," me"]
+#触发指令为"make love"时,输出 ["make ", None]
+@plugin.handle(r"^(.+)love(.*)")
+async def _(event: Event):
+    print(event.args)
+```
+
+## 指令-响应任务的响应
+
+指令-响应任务函数的返回值可以是任意类型,这个返回值会发送给 build_result 方法构建成 Result 类的实例。
+
+如果你的插件的 build_result is None 那你就必须返回一个 Result 类的实例。
+
+就像你的 build_event is None ,你的参数会是原始的 Event 类的实例那样。
+
+关于 Result 类的详细介绍可以参考[文档](/document#plugin.Result)
+
+接下来的示例是指令为 "测试" 回应 "你好" 的 插件指令-响应任务
+
+```python
+@plugin.handle({"测试"})
+async def _(event: Event):
+    return Result("text", "你好")
+```
+
+## 指令-响应任务获取平台参数
+
+如果你在插件中需要获取一些平台参数，那么需要在注册 plugin.handle 时事先声明需要的参数
+
+```python
+@plugin.handle(["测试"], extra_args=["user_id","others"])
+async def _(event: Event):
+    print(event.kwargs["user_id"])
+    print(event.kwargs["others"])
+    print(event.kwargs["extra"]) # KeyError
+```
+
+适配器方法会根据你需要的参数构建 event.kwargs
+
+有时为了优化，你不需要在每次执行任务时都使用某个参数，你也可以声明获取这个参数的方法，在任务中获取。
+
+声明获取参数的方法获取到的值是一个不需要参数的异步函数，存在 get_kwargs 的相应字段里。
+
+异步函数的返回值与参数声明中获取的值完全相同。
+
+```python
+@plugin.handle(["测试"],["user_id"], get_extra_args = ["others"])
+async def _(event: Event):
+    print(event.kwargs["user_id"])
+    # print(event.kwargs["others"]) # KeyError
+    if condition:
+        others = await event.get_kwargs["others"]()
+```
+
+## 指令-响应任务的规则
+
+```python
+@plugin.handle(
+    ["其他功能"],
+    extra_args=["to_me"],
+    rule=lambda e: e.kwargs["to_me"],
+    priority=10,
+    block=False,
+)
+async def _(event: Event):
+    pass
+```
+
+- rule 是参数为 event，返回值为 bool 的函数或此类函数的列表。
+- 如果是函数列表，则所有函数的检查都通过才会触发任务
+- 需要注意的是，传给 rule 的参数是 build_event 的返回值，并不是原始的 Event 类实例，除非你的 build_event is None
+
+## 临时任务
+
+```python
+@plugin.temp_handle("temp_handle1", 30, ["user_id", "group_id"])
+async def _(event: Event, finish):
+  if i_should_finish:
+    finish()
+```
+
+临时任务没有优先级，而且是最优先触发。
+
+临时任务可以在任务中注册,在注册时需要传入一个字符串 `key` 作为这个临时任务的键 。
+
+**注意，一般任务也可以在任务中注册，但是不会生效并且可能导致未定义的行为**
+
+`key` 临时任务 key 如果这个 key 被注册过，并且没有超时也没有结束，那么之前的任务会被下面的任务覆盖
+
+`timeout` 任务超时时间（秒）
+
+temp_handle 会被任意消息触发，请传入规则或在响应函数中内置规则。
+
+temp_handle 任务除了 event，你还会获得一个 Callable 参数 finish，它的功能是结束本任务。如果你不结束，在临时任务超时前每次消息都会触发。
+
+**关于 handle 任务的指令格式和参数列表**
+
+set 格式：合集内的指令都会触发插件
+
+## 配置文件
 
 配置文件存放在一个 toml 文件里，文件由你指定
 
@@ -45,9 +283,9 @@ poetry add clovers
 clovers.toml
 
 ```toml
-[nonebot_plugin_clovers]
-plugins_path = "./clovers/plugins"
-plugins_list = ["clovers_apscheduler"]
+[clovers_AIchat]
+nickname = "小叶子"
+timeout = 600
 ```
 
 意味着 clovers 会加载`./clovers/plugins`文件夹下的文件或文件夹作为插件（排除`_`开头的文件）
@@ -65,210 +303,6 @@ config_data = clovers_config.get(config_key, {})
 default_config.update(config_data)
 # 把配置存回总配置
 clovers_config[config_key] = config_data
-```
-
-当然你也可以不这么做
-
-## 关于插件
-
-下面是一个模板
-
-```python
-from clovers.core.config import config as clovers_config
-from clovers.core.plugin import Plugin, Event
-from .config import Config
-
-# 获取你的配置
-config_key = __package__
-config_data = Config.parse_obj(clovers_config.get(config_key, {}))
-clovers_config[config_key] = config_data.dict()
-
-plugin = Plugin()
-
-# 启动时的任务
-@plugin.startup
-async def _():
-    pass
-
-# 关闭时的任务
-@plugin.shutdown
-async def _():
-    pass
-
-
-# 指令-响应任务
-@plugin.handle({"测试"})
-async def _(event: Event):
-    pass
-
-__plugin__ = plugin
-```
-
-插件加载器会尝试获取你的模块的`__plugin__`属性，并作为插件放进适配器的插件列表里
-
-如果你想编写插件的插件，也可以不定义`__plugin__`属性,但是一般你需要使用其他插件的`__plugin__`属性
-
-```python
-from some_plugin import __plugin__ as plugin
-
-# do something
-@plugin.handle({"其他测试"})
-async def _(event: Event):
-    pass
-```
-
-### 指令-响应任务获取平台参数
-
-如果你在插件中需要获取一些平台参数，那么需要在注册 plugin.handle 时事先声明需要的参数
-
-```python
-@plugin.handle({"测试"},{"user_id","others"})
-async def _(event: Event):
-    print(event.kwargs["user_id"])
-    print(event.kwargs["others"])
-    print(event.kwargs["extra"]) # KeyError
-```
-
-适配器方法会根据你需要的参数构建 event.kwargs
-
-有时为了优化，你不需要在每次执行任务时都使用某个参数，你也可以声明获取这个参数的方法，在任务中获取。
-
-声明获取参数的方法获取到的值是一个不需要参数的异步函数，存在 get_kwargs 的相应字段里。
-
-异步函数的返回值与参数声明中获取的值完全相同。
-
-```python
-@plugin.handle({"测试"},{"user_id"}, get_extra_args = ["others"])
-async def _(event: Event):
-    print(event.kwargs["user_id"])
-    print(event.kwargs["others"]) # function
-    others = await event.kwargs["others"]()
-```
-
-### 指令-响应任务中的 event
-
-event 是你在指令-响应任务的函数中唯一获得的参数，你需要的所有东西都在 event 里
-
-`raw_command` 触发本次响应的原始字符串
-`args` 解析的参数列表
-
-```python
-#使用 "你好世界" 触发响应
-@plugin.handle({"你好"})
-async def _(event: Event):
-    print(event.raw_command) # "你好世界"
-    print(event.args) # ["世界"]
-```
-
-如果你不想使用原始的 event,你也可以自建 event 类,然后在创建 plugin 实例时注入 build_event 方法。
-
-```python
-from clovers.core.plugin import Plugin
-class Event:
-    def __init__(self, event: CloversEvent):
-        self.event: CloversEvent = event
-
-    @property
-    def raw_command(self):
-        return self.event.raw_command
-
-    @property
-    def args(self):
-        return self.event.args
-
-    @property
-    def user_id(self) -> str:
-        return self.event.kwargs["user_id"]
-
-plugin = Plugin(build_event=lambda event: Event(event))
-
-@plugin.handle({"测试"},{"user_id"})
-async def _(event: Event):
-    print(event.user_id) # "123456"
-```
-
-### 插件的响应
-
-响应的格式应该是 clovers.core.plugin.Result 类
-
-`send_method` 控制适配器方法用什么方式发送你的数据
-
-`data` 是要发送的原始数据
-
-接下来的示例是指令为 "测试" 回应 "你好" 的 插件指令-响应任务
-
-```python
-@plugin.handle({"测试"})
-async def _(event: Event):
-    return Result("text", "你好")
-```
-
-当然如果你认为这样太过繁琐，你也可以使用 build_result 方法
-
-```python
-from clovers.core.plugin import Plugin
-def build_result(result):
-    if isinstance(result, str):
-        return Result("text", result)
-    if isinstance(result, BytesIO):
-        return Result("image", result)
-    if isinstance(result, AnyTypeYouNeed):
-        return Result("any_method_you_want", result)
-    return result
-
-plugin = Plugin(build_result=build_result)
-
-@plugin.handle(["测试"])
-async def _(event: Event):
-    return "你好"
-```
-
-### 关于插件的其他功能
-
-**临时任意触发任务**
-
-```python
-@plugin.temp_handle("temp_handle1", 30, ["user_id", "group_id"])
-async def _(event: Event, finish):
-  if i_should_finish:
-    finish()
-```
-
-需要的三个参数
-
-`key` 临时任务 key 如果这个 key 被注册过，并且没有超时也没有结束，那么之前的任务会被下面的任务覆盖
-
-`extra_args` 需要的平台参数
-
-`timeout` 任务超时时间（秒）
-
-temp_handle 会被任意消息触发，请在任务内自定义检查规则。
-
-temp_handle 任务除了 event，你还会获得一个 Callable 参数 finish，它的功能是结束本任务。如果你不结束，在临时任务超时前每次消息都会触发。
-
-**关于 handle 任务的指令格式和参数列表**
-
-set 格式：合集内的指令都会触发插件
-
-```python
-#触发指令为"你好 世界"时，输出 ["世界"]
-#触发指令为"hello1 world with extra args"时，输出 ["1","world","with","extra","args"]
-@plugin.handle({"你好","hello"})
-async def _(event: Event):
-    print(event.args)
-```
-
-字符串格式：正则匹配
-
-如果 handle 的指令参数是字符串那么它会进行正则匹配，args 会是正则字符串中的 group 列表
-
-```python
-#触发指令为"i love you"时，输出 ["i "," you"] 使用时注意去掉参数里的空格
-#触发指令为"you love me"时,输出 ["you "," me"]
-#触发指令为"make love"时,输出 ["make ", None]
-@plugin.handle(r"^(.+)love(.*)")
-async def _(event: Event):
-    print(event.args)
 ```
 
 ## 关于适配器
