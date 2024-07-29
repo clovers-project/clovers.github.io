@@ -1,7 +1,5 @@
 <!-- _coverpage.md -->
 
-<!-- ![logo](/icon.png) -->
-
 <img class="cover-logo"  src="https://raw.githubusercontent.com/clovers-project/clovers.github.io/master/docs/icon.png" alt="logo">
 
 # clovers <small>v1</small>
