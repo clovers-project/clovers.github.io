@@ -2,7 +2,7 @@
 
 <!-- ![logo](/icon.png) -->
 
-<img class="cover-logo"  src="/icon.png" data-origin="/icon.png" alt="logo">
+<img class="cover-logo"  src="https://github.com/clovers-project/clovers.github.io/blob/master/docs/icon.png" data-origin="https://github.com/clovers-project/clovers.github.io/blob/master/docs/icon.png" alt="logo">
 
 # clovers <small>v1</small>
 
