@@ -1,6 +1,8 @@
 <!-- _coverpage.md -->
 
-![logo](_media/icon.svg)
+<!-- ![logo](/icon.png) -->
+
+<img class="cover-logo"  src="/icon.png" data-origin="/icon.png" alt="logo">
 
 # clovers <small>v1</small>
 
