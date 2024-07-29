@@ -91,6 +91,12 @@ async def _(event: Event):
 
 `block` 如果本任务有响应，是否阻断插件内后续任务触发。
 
+## plugin.PluginLoader
+
+`plugins_list` 插件名列表,例如["plugin1","plugin2"]。从 python lib 路径下的包名加载插件
+
+`plugins_path` 插件文件夹，加载改路径下的文件或文件夹作为插件（排除`_`开头的文件）
+
 ## plugin.Event
 
 `raw_command` 触发本次响应的原始字符串。

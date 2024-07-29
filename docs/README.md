@@ -270,11 +270,7 @@ temp_handle 会被任意消息触发，请传入规则或在响应函数中内�
 
 temp_handle 任务除了 event，你还会获得一个 Callable 参数 finish，它的功能是结束本任务。如果你不结束，在临时任务超时前每次消息都会触发。
 
-**关于 handle 任务的指令格式和参数列表**
-
-set 格式：合集内的指令都会触发插件
-
-## 配置文件
+## 插件配置文件
 
 配置文件存放在一个 toml 文件里，文件由你指定
 
@@ -288,8 +284,6 @@ nickname = "小叶子"
 timeout = 600
 ```
 
-意味着 clovers 会加载`./clovers/plugins`文件夹下的文件或文件夹作为插件（排除`_`开头的文件）
-
 插件获取的配置会是一个字典。
 
 为便于插件间的配置互相获取，建议在插件中使用类似下面的代码加载配置
@@ -297,7 +291,7 @@ timeout = 600
 ```python
 from clovers.core.config import config as clovers_config
 config_key = __package__ # 或者你自定义的任何key
-default_config = {"some_config_name":"some_config_value"}
+default_config = {"nickname": "小叶子", "timeout": 600}
 # 各种方法获取配置
 config_data = clovers_config.get(config_key, {})
 default_config.update(config_data)
@@ -305,7 +299,31 @@ default_config.update(config_data)
 clovers_config[config_key] = config_data
 ```
 
-## 关于适配器
+当然，也许你更喜欢这样做
+
+```python
+from pydantic import BaseModel
+
+class Config(BaseModel):
+    nickname: str = "小叶子"
+    timeout: int = 600
+
+from clovers.core.config import config as clovers_config
+
+config_key = __package__ # 或者你自定义的任何key
+config_data = Config.model_validate(clovers_config.get(config_key, {}))
+clovers_config[config_key] = config_data.model_dump()
+```
+
+为了更方便的修改配置，你可以保存当前的配置，这样所有配置项都会出现在配置文件里
+
+```python
+@plugin.startup
+async def _():
+    clovers_config.save()
+```
+
+# 编写适配器
 
 创建一个适配器
 
@@ -319,101 +337,130 @@ adapter = Adapter()
 
 适配器的所有方法都需要自己写
 
-如果你想使用 clovers 框架，需要使用你接收到的纯文本消息触发适配器响应
+## 获取参数 kwarg 方法
 
-像这样
+在[指令-响应任务获取平台参数](#指令-响应任务获取平台参数)的示例中，我们声明获取了 `user_id` 参数。
+
+当然，这个参数不是凭空而来，它实际上是你编写的适配器方法获得的
+
+所以你需要在适配器方法中定义这个参数的获取方法
+
+kwarg 方法的参数是 clovers 实例响应时传入的，我们可以传入任意参数，请参考 [使用 Clovers 框架](#使用-clovers-框架) 3. 在运行阶段先启动实例再执行响应任务
+
+下面是 nonebot-plugin-clovers.adapters.onebot.v11 中的一个例子
 
 ```python
-#假设你在一个循环里不断轮询收发消息端是否有新消息
-while True:
-    command = received_plain_text()
-    if command:
-        await adapter.response(adapter_key, command, **kwargs)
+
+@adapter.kwarg("user_id")
+async def _(event: MessageEvent):
+    return event.get_user_id()
+
 ```
 
-`adapter_key` 适配器方法指定的 key
-`kwargs` 适配器方法需要的所有参数
+这样，如果 handle 声明了 `extra_args=["user_id"]` 参数，那么原始 Event 实例的 `event.kwargs["user_id"]` 就会是 `event.get_user_id()` 的返回值
 
-### 适配器方法
+诸如此类的方法，都需要在适配器方法中定义
 
-获取参数，发送信息的方法。里面所有的方法都需要自己写
+## 发送消息 send 方法
 
-发送信息，获取参数
+在[指令-响应任务的响应](#指令-响应任务的响应)的示例中，我们使用了返回的 `Result` 类实例的 `send_method` 标记为 `text`
+
+发送消息也是适配器的工作，但是如果你不定义的话，适配器并不知道该怎么发送 `text` 消息
+
+所以你需要在适配器方法中定义发送这种消息的方法
+
+适配器会向 send 方法传入 `Result` 类实例的 `data` 属性作为参数。
+
+下面是 nonebot-plugin-clovers.adapters.onebot.v11 中的一个例子
 
 ```python
-# 假如收发信息框架提供了如下方法
-
-# send_plain_text(text:str)发送纯文本
-
-method = AdapterMethod()
-@method.send("text")
-async def _(message: str):
-    send_plain_text(message)
-
-# send_image(image:bytes) 发送图片，但是需要response的参数
-
-@method.send("image")
-async def _(message: bytes,send_image):
-    send_image(message)
-
-# sender发送消息的用户信息，通过response的参数传入
-# 假设有 sender.user_id 属性为该用户uid
-@method.kwarg("user_id")
-async def _(sender):
-    return sender.user_id
-
-# 注入适配器方法
-adapter.methods["my_adapter_method"] = method
+@adapter.send("text")
+async def _(message: str, send: Callable[..., Coroutine] = main.send):
+    """发送纯文本"""
+    await send(message)
 ```
 
-使用上述适配器
+_注意：nonebot-plugin-clovers.adapters.onebot.v11 的 send 方法比较特别，适配器只会向 send 方法传入 `Result` 类实例的 `data` 属性。_
 
-你的 `Result("text", "你好")` 会使用 send_plain_text 发送
+_这边多出来的 `send` 是因为 kwarg 方法 `send_group_message`对上述 send 方法的复用导致的。详见[源代码](https://github.com/clovers-project/nonebot-plugin-clovers/blob/master/nonebot_plugin_clovers/adapters/onebot/v11.py)_
 
-你的指令响应任务获取平台参数的 `"user_id"` 就是 sender.user_id
+# 使用 Clovers 框架
 
-### 使用插件加载器 PluginLoader 向适配器注入插件
+创建一个 Clovers 实例
 
 ```python
+from clovers import Clovers
+
+clovers = Clovers()
+```
+
+现在你需要对 Clovers 实例进行一些初始化操作
+
+接下来是流程：
+
+0. 配置日志记录器（可以不配置，但此时可能无法输出日志）
+
+```python
+from clovers.core.logger import logger as clovers_logger
+
+# clovers_logger 实际上是 logging.getLogger("clovers")，请根据宿主的需求进行配置
+
+```
+
+1. 向 Clovers 实例注入适配器
+
+```python
+
+example_adapter = Adapter()
+
+# 假设你有一个适配器，并写好了适配器方法
+
+adapter_key = "ExampleAdapter"
+
+clovers.adapter_dict[adapter_key] = adapter
+
+```
+
+2. 使用插件加载器 PluginLoader 向 Clovers 实例注入插件
+
+```python
+from clovers.core.plugin import PluginLoader
+
 loader = PluginLoader(plugins_path, plugins_list)
-adapter.plugins = loader.plugins
+clovers.plugins = loader.plugins
 ```
-
-`plugins_list` 插件名列表,例如["plugin1","plugin2"]。从 python lib 路径下的包名加载插件
-
-`plugins_path` 插件文件夹，加载改路径下的文件或文件夹作为插件（排除`_`开头的文件）
 
 或者
 
 ```python
 plugin = PluginLoader.load("plugin1")
 if not plugin is None:
-    adapter.plugins.append(plugin)
+    clovers.plugins.append(plugin)
 ```
 
-### 开始，结束任务
+关于 PluginLoader 类的详细介绍可以参考[文档](/document#plugin.PluginLoader)
 
-一些插件会注册一些开始时，结束时运行的任务
+3. 在运行阶段先启动实例再执行响应任务
 
-所以你需要在开始时，或结束时执行
+现在你已经可以运行 Clovers 实例了，但是很明显接下来的操作都已经是异步的了。
+
+假设：
+
+main 函数是你启动的异步服务。
+
+received_plain_text 是获取用户消息的异步函数.
+
+clovers.response 可以接受 `**kwargs` 参数，适配器需要的任何参数都可以通过 abc=..., xxx=...的方式传入。
 
 ```python
-asyncio.create_task(adapter.startup)
-asyncio.create_task(adapter.shutdown)
+async def main():
+    task = clovers.startup() # 启动实例
+
+    while True:
+        command = await received_plain_text()
+        await clovers.response("ExampleAdapter", command, abc=..., xxx=..., ...) # 执行响应任务
+        if condition:
+            break
+
+    await asyncio.gather(task, *clovers.wait_for) # 等待结束任务
 ```
-
-或类似作用的代码
-
-## 📞 联系
-
-如有建议，bug 反馈等可以加群
-
-机器人 bug 研究中心（闲聊群） 744751179
-
-永恒之城（测试群） 724024810
-
-![群号](https://github.com/KarisAya/clovers/blob/master/%E9%99%84%E4%BB%B6/qrcode_1676538742221.jpg)
-
-## 💡 鸣谢
-
-- [nonebot2](https://github.com/nonebot/nonebot2) 跨平台 Python 异步聊天机器人框架 ~~需求都是基于这个写的~~
