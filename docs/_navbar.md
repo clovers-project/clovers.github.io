@@ -1,3 +1,5 @@
 <!-- _navbar.md -->
 
-- [Home Page](/)
+- 关于
+
+  - [NoneBot clovers 插件](/nonebot-plugin-clovers.md)
