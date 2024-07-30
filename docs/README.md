@@ -65,11 +65,11 @@ plugins_list = [ "clovers_leafgame",]
 
 ## 发生了什么
 
-clovers 插件加载器本质是一个 Clovers 实例和一些预定义的 clovers.adapter.Adapter 实例
+clovers 插件加载器本质是一个 Clovers 实例和一些预定义的 adapter.Adapter 实例
 
 通过 NoneBot2 的响应器获取指令使 clovers 实例内插件响应
 
-clovers 的理念是完全的自定义，所以当然，如果 nonebot-plugin-clovers 插件无法满足你的需求，你也可以自行编写[适配器方法](#Adapter)
+clovers 的理念是完全的自定义，所以当然，如果 nonebot-plugin-clovers 插件无法满足你的需求，你也可以自行[编写适配器](#编写适配器)
 
 # 如何编写插件？
 
@@ -79,7 +79,7 @@ clovers 的理念是完全的自定义，所以当然，如果 nonebot-plugin-cl
 
 ## 开始编写插件
 
-你需要编写一个模块，这个模块需要包含一个`__plugin__`属性，这个属性是一个 clovers.core.plugin.Plugin 类的实例
+你需要编写一个模块，这个模块需要包含一个`__plugin__`属性，这个属性是一个 plugin.Plugin 实例
 
 插件加载器会尝试获取你的模块的`__plugin__`属性，并作为插件放进适配器的插件列表里
 
@@ -139,19 +139,11 @@ async def _(event: Event):
 
 `shutdown` 在插件关闭时执行，无参数。
 
-`handle` 指令响应任务，由指令触发，获取到事件参数 `event` ， `event`并不是某个特定的类的实例。而是原始 `Event` 类的实例发送给 `build_event` 构建的返回值。
+`handle` 指令响应任务，由指令触发，获取到事件参数 `event` ， `event`并不是某个特定的类型。而是原始 `Event` 实例发送给 `build_event` 构建的返回值。
 
 由此可见原始 `Event` 类你在指令响应任务的函数中唯一获得的参数，你需要的所有东西都在这里。
 
 关于 Event 类的详细介绍可以参考[文档](/document#plugin.Event)
-
-```python
-#使用 "你好世界" 触发响应
-@plugin.handle(["你好"])
-async def _(event: Event):
-    print(event.raw_command) # "你好世界"
-    print(event.args) # ["世界"]
-```
 
 ## 指令-响应任务的指令
 
@@ -184,11 +176,11 @@ async def _(event: Event):
 
 ## 指令-响应任务的响应
 
-指令-响应任务函数的返回值可以是任意类型,这个返回值会发送给 build_result 方法构建成 Result 类的实例。
+指令-响应任务函数的返回值可以是任意类型,这个返回值会发送给 build_result 方法构建成 Result 实例。
 
-如果你的插件的 build_result is None 那你就必须返回一个 Result 类的实例。
+如果你的插件的 build_result is None 那你就必须返回一个 Result 实例。
 
-就像你的 build_event is None ,你的参数会是原始的 Event 类的实例那样。
+就像你的 build_event is None ,你的参数会是原始的 Event 实例那样。
 
 关于 Result 类的详细介绍可以参考[文档](/document#plugin.Result)
 
