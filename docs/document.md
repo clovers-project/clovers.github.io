@@ -165,7 +165,7 @@ async def _(event: Event):
 
 `temp_handles` 临时任务列表，类型为字典，key 是临时任务键（注册时传入） value 是注册时的浮点数时间戳和 plugin.Handle 实例组成的元组
 
-## ready
+### ready
 
 准备插件。Clovers 实例启动时会对每个插件都调用一次 ready 方法。
 
@@ -176,8 +176,6 @@ async def _(event: Event):
 **参数：**
 
 `None`
-
-## plugin.Plugin.Rule
 
 ### handle
 
@@ -206,6 +204,8 @@ async def _(event: Event):
 `rule` 响应的触发的规则。
 
 `block` 如果本任务有响应，是否阻断插件内后续任务触发。
+
+## plugin.Plugin.Rule
 
 ## plugin.PluginLoader
 
