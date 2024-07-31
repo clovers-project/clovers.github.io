@@ -205,6 +205,30 @@ async def _(event: Event):
 
 `block` 如果本任务有响应，是否阻断插件内后续任务触发。
 
+### plugin.Plugin.Finish
+
+结束临时任务的类，作为参数传入临时任务函数中，表示本任务结束。
+
+直接调用是结束任务，调用 `delay` 方法并传入秒数可以相应延长任务超时时间
+
+下面是示例：
+
+```python
+
+@plugin.temp_handle("test", timeout=10)
+async def _(event: Event, finish: plugin.Plugin.Finish):
+    # do something
+    if condition:
+        finish() # 结束任务
+    else:
+        finish.delay(10) # 不结束任务并且延长任务超时时间
+
+```
+
+### startup
+
+
+
 ## plugin.Plugin.Rule
 
 ## plugin.PluginLoader
