@@ -446,8 +446,8 @@ clovers_config[config_key] = config_data.model_dump() # 将规范配置存回 cl
 
 这个实例的文件位置从环境变量中的 `clovers_config_file` 读取，如果没有找到，则使用 `clovers.toml` 作为默认配置文件。
 
-## logger
+# logger
 
-### logger.logger
+## logger.logger
 
 默认的日志记录器
