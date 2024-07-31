@@ -266,6 +266,8 @@ temp_handle 任务除了 event，你还会获得一个 Callable 参数 finish，
 
 配置文件存放在一个 toml 文件里，文件由你指定
 
+关于配置的详细介绍可以参考[文档](/document#config)
+
 下面是配置一个例子
 
 clovers.toml
@@ -361,7 +363,9 @@ async def _(event: MessageEvent):
 
 所以你需要在适配器方法中定义发送这种消息的方法
 
-适配器会向 send 方法传入 `Result` 类实例的 `data` 属性作为参数。
+适配器会向 send 方法传入 `Result` 类实例的 `data` 属性作为第一个参数。
+
+此外 send 方法会接受 clovers 实例响应时传入的额外关键字参数。
 
 下面是 nonebot-plugin-clovers.adapters.onebot.v11 中的一个例子
 
@@ -372,9 +376,7 @@ async def _(message: str, send: Callable[..., Coroutine] = main.send):
     await send(message)
 ```
 
-_注意：nonebot-plugin-clovers.adapters.onebot.v11 的 send 方法比较特别，适配器只会向 send 方法传入 `Result` 类实例的 `data` 属性。_
-
-_这边多出来的 `send` 是因为 kwarg 方法 `send_group_message`对上述 send 方法的复用导致的。详见[源代码](https://github.com/clovers-project/nonebot-plugin-clovers/blob/master/nonebot_plugin_clovers/adapters/onebot/v11.py)_
+_注意：nonebot-plugin-clovers.adapters.onebot.v11 的 send 方法多出来的 `send` 参数是由于 kwarg 方法 `send_group_message`对上述 send 方法的复用导致的。详见[源代码](https://github.com/clovers-project/nonebot-plugin-clovers/blob/master/nonebot_plugin_clovers/adapters/onebot/v11.py)_
 
 # 使用 Clovers 框架
 
