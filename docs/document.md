@@ -451,7 +451,3 @@ clovers_config[config_key] = config_data.model_dump() # 将规范配置存回 cl
 ### logger.logger
 
 默认的日志记录器
-
-```
-
-```
