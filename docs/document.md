@@ -396,7 +396,7 @@ send 注册的名为 key 的异步函数
 
 下面是推荐的规则：
 
-````python
+```python
 from pydantic import BaseModel
 
 class Config(BaseModel):
@@ -451,5 +451,7 @@ clovers_config[config_key] = config_data.model_dump() # 将规范配置存回 cl
 ### logger.logger
 
 默认的日志记录器
+
 ```
-````
+
+```
