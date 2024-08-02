@@ -448,13 +448,9 @@ clovers.response 可以接受 `**kwargs` 参数，适配器需要的任何参数
 
 ```python
 async def main():
-    task = clovers.startup() # 启动实例
-
-    while True:
+    asyncio.create_task(clovers.startup()) # 启动实例
+    while condition:
         command = await received_plain_text()
         await clovers.response("ExampleAdapter", command, abc=..., xxx=..., ...) # 执行响应任务
-        if condition:
-            break
-
-    await asyncio.gather(task, *clovers.wait_for) # 等待结束任务
+    await clovers.shutdown() # 等待结束任务
 ```
